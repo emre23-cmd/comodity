@@ -251,9 +251,9 @@ def fetch_live_data(ticker, fallback_spot, fallback_drift, fallback_sigma):
     try:
         import yfinance as yf
         hist = yf.Ticker(ticker).history(period="1y")
-        if hist.empty or len(hist) < 20:
-            raise ValueError("insufficient data")
-        closes    = hist["Close"].dropna()
+        closes = hist["Close"].dropna()
+        if len(closes) < 20 or not np.isfinite(closes).all() or (closes <= 0).any():
+            raise ValueError("Insufficient valid closing prices")
         spot      = float(closes.iloc[-1])
         prev      = float(closes.iloc[-2])
         pct_chg   = (spot/prev - 1)*100
@@ -827,7 +827,8 @@ with st.sidebar:
 
     st.markdown("---")
     if st.button("🔄  Refresh live prices"):
-        st.cache_data.clear(); st.rerun()
+        fetch_live_data.clear()
+        st.rerun()
 
     strait_impact = STRAIT_IMPACT[meta["symbol"]]
 
@@ -946,17 +947,20 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     fig1 = plot_history_and_paths(hist_closes, paths, spot,
                                   commodity_name, unit, dec, horizon_days)
-    st.pyplot(fig1, use_container_width=True); plt.close(fig1)
+    st.pyplot(fig1, width="stretch")
+    plt.close(fig1)
     if data_source == "live":
         st.caption(f"Left: 1-year real data ({meta['ticker']}). Right: {n_paths:,}-path Monte Carlo forecast.")
 
 with tab2:
     fig2 = plot_distribution(paths, spot, commodity_name, unit, dec, horizon_days)
-    st.pyplot(fig2, use_container_width=True); plt.close(fig2)
+    st.pyplot(fig2, width="stretch")
+    plt.close(fig2)
 
 with tab3:
     fig3 = plot_log_returns(paths, spot, commodity_name, hist_log_rets)
-    st.pyplot(fig3, use_container_width=True); plt.close(fig3)
+    st.pyplot(fig3, width="stretch")
+    plt.close(fig3)
     st.caption(
         "Left: Daily log-return of the median simulated path. "
         "Centre: Log-return histogram — simulated vs historical (if live) vs normal fit. "
@@ -966,7 +970,8 @@ with tab3:
 with tab4:
     fig4 = plot_scenario_compare(commodity_name, spot, sym,
                                   strait_impact, n_paths, horizon_days, seed)
-    st.pyplot(fig4, use_container_width=True); plt.close(fig4)
+    st.pyplot(fig4, width="stretch")
+    plt.close(fig4)
 
 with tab5:
     # ── Statistical tests ─────────────────────────────────
